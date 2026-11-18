@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>獨立遊戲工作室的 12 個月生存戰｜AI 學習模擬器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-studio: #16161e;
+      --panel-bg: #1f202e;
+      --panel-border: #383a54;
+      --accent-amber: #ffbe55;
+      --accent-mint: #5ce1a6;
+      --accent-coral: #ff6b6b;
+      --accent-sky: #64b5f6;
+      --accent-purple: #b388ff;
+    }
+
+    body {
+      background-color: var(--bg-studio);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(255, 190, 85, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(92, 225, 166, 0.06) 0%, transparent 45%),
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      color: #e2e4f3;
+      font-family: 'Noto Sans TC', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .font-pixel {
+      font-family: 'DotGothic16', 'Noto Sans TC', monospace;
+      letter-spacing: 0.04em;
+    }
+
+    /* Tactile retro studio card */
+    .studio-card {
+      background: var(--panel-bg);
+      border: 2px solid var(--panel-border);
+      box-shadow: 0 6px 0 #0d0d12, 0 12px 24px rgba(0,0,0,0.45);
+      border-radius: 14px;
+    }
+
+    .choice-btn {
+      background: #26283b;
+      border: 2px solid #3f4261;
+      box-shadow: 0 4px 0 #12131c;
+      transition: all 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .choice-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      border-color: var(--accent-amber);
+      background: #2e3147;
+      box-shadow: 0 6px 0 #12131c, 0 0 15px rgba(255, 190, 85, 0.18);
+    }
+
+    .choice-btn:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #12131c;
+    }
+
+    /* Floating stat delta animation */
+    @keyframes floatUpFade {
+      0% { opacity: 0; transform: translateY(6px) scale(0.9); }
+      20% { opacity: 1; transform: translateY(0px) scale(1.05); }
+      80% { opacity: 1; transform: translateY(-8px) scale(1); }
+      100% { opacity: 0; transform: translateY(-14px) scale(0.95); }
+    }
+
+    .delta-badge {
+      animation: floatUpFade 2.6s ease-out forwards;
+    }
+
+    /* Pixel animations inside SVG */
+    @keyframes steamRise {
+      0%, 100% { transform: translateY(0); opacity: 0.7; }
+      50% { transform: translateY(-4px); opacity: 0.2; }
+    }
+    .steam-1 { animation: steamRise 2.2s infinite ease-in-out; }
+    .steam-2 { animation: steamRise 2.2s infinite ease-in-out 0.8s; }
+
+    @keyframes screenGlow {
+      0%, 100% { opacity: 0.85; }
+      50% { opacity: 1; }
+    }
+    .monitor-glow { animation: screenGlow 3s infinite ease-in-out; }
+
+    @keyframes bugScuttle {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(3px, -2px) rotate(6deg); }
+      75% { transform: translate(-3px, 1px) rotate(-6deg); }
+    }
+    .bug-anim { animation: bugScuttle 1.4s infinite ease-in-out; }
+
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #16161e; }
+    ::-webkit-scrollbar-thumb { background: #383a54; border-radius: 999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-5">
+
+  <!-- Top Utility Header -->
+  <header class="max-w-5xl w-full mx-auto flex flex-wrap items-center justify-between gap-2 mb-3">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-amber-400/15 border-2 border-amber-400/50 flex items-center justify-center text-lg shadow-inner">
+        🕹️
+      </div>
+      <div>
+        <h1 class="font-pixel text-base sm:text-lg text-amber-300 leading-tight">INDIE DEV 365 // 獨立遊戲開發生存戰</h1>
+        <p class="text-[11px] text-slate-400">AI 互動情境模擬器・多輪次決策實驗</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <span id="aiModeBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        AI 遊戲主持人連線中
+      </span>
+      <button onclick="togglePromptModal(true)" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition flex items-center gap-1.5 cursor-pointer">
+        <span>📜</span> 查看系統提示詞
+      </button>
+      <button onclick="resetGame()" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-rose-950/60 hover:border-rose-500/50 hover:text-rose-200 text-slate-300 border border-slate-600 transition cursor-pointer" title="重新開始">
+        ↻ 重來
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Game Container -->
+  <main class="max-w-5xl w-full mx-auto flex-1 flex flex-col gap-3.5">
+
+    <!-- Compact HUD Status Bar -->
+    <section class="studio-card p-3 sm:p-4">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+        
+        <!-- Month -->
+        <div class="bg-[#171824] rounded-xl p-2.5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>📅 開發時程</span>
+            <span class="font-pixel text-[11px] text-amber-300/80" id="seasonLabel">春・啟動期</span>
+          </div>
+          <div class="flex items-baseline gap-1">
+            <span class="font-pixel text-xl sm:text-2xl text-white" id="statMonth">1</span>
+            <span class="text-xs text-slate-400">/ 12 個月</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="barMonth" class="h-full bg-amber-400 transition-all duration-500" style="width: 8.3%"></div>
+          </div>
+        </div>
+
+        <!-- Cash -->
+        <div class="bg-[#171824] rounded-xl p-2.5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>💰 工作室存款</span>
+            <span id="deltaCash" class="font-pixel text-xs font-bold"></span>
+          </div>
+          <div class="font-pixel text-lg sm:text-xl text-emerald-300 truncate" id="statCash">NT$ 150,000</div>
+          <div class="text-[10px] text-slate-500 mt-1">每月基本生活開銷約 1.2 萬</div>
+        </div>
+
+        <!-- Energy -->
+        <div class="bg-[#171824] rounded-xl p-2.5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>⚡ 開發者精力</span>
+            <span id="deltaEnergy" class="font-pixel text-xs font-bold"></span>
+          </div>
+          <div class="flex items-baseline justify-between">
+            <span class="font-pixel text-xl text-sky-300" id="statEnergy">100</span>
+            <span class="text-xs text-slate-500">/ 100</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="barEnergy" class="h-full bg-sky-400 transition-all duration-500" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <!-- Completion -->
+        <div class="bg-[#171824] rounded-xl p-2.5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>🎮 遊戲完成度</span>
+            <span id="deltaCompletion" class="font-pixel text-xs font-bold"></span>
+          </div>
+          <div class="flex items-baseline justify-between">
+            <span class="font-pixel text-xl text-purple-300" id="statCompletion">0%</span>
+            <span class="text-[11px] text-slate-500">目標 100%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="barCompletion" class="h-full bg-purple-400 transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Bug Debt -->
+        <div class="bg-[#171824] rounded-xl p-2.5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>🐛 Bug 技術債</span>
+            <span id="deltaBugs" class="font-pixel text-xs font-bold"></span>
+          </div>
+          <div class="flex items-baseline justify-between">
+            <span class="font-pixel text-xl text-rose-400" id="statBugs">0</span>
+            <span class="text-[11px] text-slate-500" id="bugStatusText">程式碼潔淨</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+            <div id="barBugs" class="h-full bg-rose-500 transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Wishlist -->
+        <div class="bg-[#171824] rounded-xl p-2.5 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>⭐ 願望清單</span>
+            <span id="deltaWishlist" class="font-pixel text-xs font-bold"></span>
+          </div>
+          <div class="font-pixel text-xl text-amber-300" id="statWishlist">0</div>
+          <div class="text-[10px] text-slate-500 mt-1">影響發售首週熱度</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Center Stage: Pixel Studio Illustration + Story Log -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+      
+      <!-- Left: Dynamic Pixel Art Studio Illustration (5 cols) -->
+      <div class="lg:col-span-5 studio-card p-3.5 flex flex-col justify-between bg-[#191a26]">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-pixel text-xs px-2.5 py-0.5 rounded-md bg-slate-800 text-amber-300 border border-slate-700" id="sceneTag">
+            SCENE // 夢想啟航的小套房
+          </span>
+          <span class="text-[11px] text-slate-400 font-pixel" id="devMoodLabel">狀態：鬥志滿滿 🔥</span>
+        </div>
+
+        <!-- Interactive SVG Pixel Desk Canvas -->
+        <div class="relative w-full aspect-[16/11] rounded-xl overflow-hidden border-2 border-[#2d3047] bg-[#12131c] flex items-center justify-center">
+          <svg id="studioSvg" viewBox="0 0 320 220" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <!-- Wall & Window -->
+            <rect width="320" height="220" fill="#181a28"/>
+            <!-- Subtle wall poster -->
+            <rect x="24" y="24" width="44" height="58" rx="2" fill="#25283d" stroke="#3b3f5c" stroke-width="2"/>
+            <polygon points="46,34 34,54 58,54" fill="#ffbe55" opacity="0.8"/>
+            <circle cx="46" cy="64" r="5" fill="#ff6b6b" opacity="0.8"/>
+
+            <!-- Window Frame (Sky color changes dynamically via JS) -->
+            <rect x="195" y="20" width="98" height="72" rx="3" fill="#2c3554" stroke="#454a6e" stroke-width="3"/>
+            <rect id="windowSky" x="200" y="25" width="88" height="62" fill="#3b5998"/>
+            <!-- Stars / Sun / Moon -->
+            <circle id="celestialBody" cx="266" cy="42" r="9" fill="#ffe082"/>
+            <!-- Window Crossbars -->
+            <rect x="242" y="25" width="3" height="62" fill="#454a6e"/>
+            <rect x="200" y="54" width="88" height="3" fill="#454a6e"/>
+
+            <!-- Shelf with Game Dev Books & Plant -->
+            <rect x="86" y="46" width="88" height="5" fill="#5c4338"/>
+            <rect x="92" y="30" width="8" height="16" fill="#ff6b6b"/>
+            <rect x="102" y="32" width="7" height="14" fill="#5ce1a6"/>
+            <rect x="111" y="28" width="9" height="18" fill="#64b5f6"/>
+            <!-- Potted Succulent -->
+            <rect x="150" y="36" width="12" height="10" fill="#d97757"/>
+            <circle cx="156" cy="33" r="6" fill="#5ce1a6"/>
+
+            <!-- Desk Surface -->
+            <rect x="16" y="148" width="288" height="12" rx="2" fill="#7c5844"/>
+            <rect x="16" y="160" width="288" height="60" fill="#13141f"/>
+            <rect x="30" y="160" width="14" height="60" fill="#5c4032"/>
+            <rect x="276" y="160" width="14" height="60" fill="#5c4032"/>
+
+            <!-- Dual Monitors -->
+            <!-- Secondary Vertical Monitor (Code) -->
+            <rect x="64" y="88" width="42" height="52" rx="3" fill="#2b2e42" stroke="#11121a" stroke-width="2"/>
+            <rect x="68" y="92" width="34" height="42" fill="#161b29" class="monitor-glow"/>
+            <rect x="72" y="97" width="18" height="2" fill="#5ce1a6"/>
+            <rect x="75" y="102" width="22" height="2" fill="#64b5f6"/>
+            <rect x="75" y="107" width="14" height="2" fill="#ffbe55"/>
+            <rect x="72" y="112" width="20" height="2" fill="#b388ff"/>
+            <rect x="75" y="117" width="16" height="2" fill="#5ce1a6"/>
+            <rect x="81" y="140" width="8" height="8" fill="#3a3e59"/>
+
+            <!-- Main Wide Monitor (Game Viewport) -->
+            <rect x="114" y="82" width="96" height="58" rx="4" fill="#2b2e42" stroke="#11121a" stroke-width="2"/>
+            <rect id="mainScreenBg" x="119" y="87" width="86" height="46" fill="#1e293b" class="monitor-glow"/>
+            <!-- Mini Pixel Game Preview inside Monitor -->
+            <rect x="119" y="123" width="86" height="10" fill="#334155"/>
+            <rect id="gameHeroSprite" x="136" y="111" width="10" height="12" fill="#ffbe55"/>
+            <rect x="168" y="115" width="8" height="8" fill="#ff6b6b"/>
+            <circle cx="186" cy="102" r="4" fill="#5ce1a6"/>
+            <!-- Monitor Stand -->
+            <rect x="156" y="140" width="12" height="8" fill="#3a3e59"/>
+            <rect x="146" y="146" width="32" height="3" fill="#4f5475"/>
+
+            <!-- Developer Character (Stylized Indie Dev) -->
+            <g id="devCharacter">
+              <!-- Hoodie Body -->
+              <path d="M135 168 C135 148, 175 148, 175 168 L180 198 L130 198 Z" fill="#4f46e5"/>
+              <!-- Head -->
+              <rect x="143" y="124" width="24" height="24" rx="6" fill="#fbd3b6"/>
+              <!-- Hair / Beanie -->
+              <path d="M141 131 C141 118, 169 118, 169 131 L169 127 L141 127 Z" fill="#27272a"/>
+              <!-- Headphones -->
+              <rect x="139" y="128" width="5" height="12" rx="2" fill="#ff6b6b"/>
+              <rect x="166" y="128" width="5" height="12" rx="2" fill="#ff6b6b"/>
+              <!-- Glasses reflecting screen -->
+              <rect x="146" y="133" width="7" height="5" fill="#93c5fd" opacity="0.85"/>
+              <rect x="157" y="133" width="7" height="5" fill="#93c5fd" opacity="0.85"/>
+            </g>
+
+            <!-- Coffee Mug + Steam -->
+            <rect x="224" y="135" width="13" height="13" rx="2" fill="#f8fafc"/>
+            <path d="M237 138 H241 V145 H237" fill="none" stroke="#f8fafc" stroke-width="2"/>
+            <path class="steam-1" d="M228 131 Q226 126 229 122" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+            <path class="steam-2" d="M233 131 Q235 126 232 122" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+
+            <!-- Dynamic Bug Sprites (Visible when Bug Debt > 0) -->
+            <g id="bugLayer" opacity="0">
+              <g class="bug-anim" transform="translate(115, 76)">
+                <circle cx="0" cy="0" r="5" fill="#ff4d6d"/>
+                <line x1="-6" y1="-3" x2="6" y2="3" stroke="#ffccd5" stroke-width="1.5"/>
+                <line x1="-6" y1="3" x2="6" y2="-3" stroke="#ffccd5" stroke-width="1.5"/>
+              </g>
+              <g class="bug-anim" transform="translate(206, 95)">
+                <circle cx="0" cy="0" r="4.5" fill="#ff4d6d"/>
+                <line x1="-5" y1="-2" x2="5" y2="2" stroke="#ffccd5" stroke-width="1.5"/>
+                <line x1="-5" y1="2" x2="5" y2="-2" stroke="#ffccd5" stroke-width="1.5"/>
+              </g>
+            </g>
+
+            <!-- Exhausted Sweat Drops (Visible when Energy < 35) -->
+            <g id="sweatLayer" opacity="0">
+              <path d="M174 123 Q177 128 174 131 Q171 128 174 123 Z" fill="#38bdf8"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Last Turn Result Feedback Banner -->
+        <div id="feedbackBox" class="mt-2.5 p-2.5 rounded-xl bg-[#232538] border border-slate-700/80 text-xs text-slate-300 leading-relaxed">
+          <span class="text-amber-300 font-bold">💡 開發日誌：</span>你剛遞出辭呈，把客廳角落改造成工作室。目標是在 12 個月內把腦海中的神作做出來並上架 Steam！
+        </div>
+      </div>
+
+      <!-- Right: Narrative & Event Stage (7 cols) -->
+      <div class="lg:col-span-7 studio-card p-4 sm:p-5 flex flex-col justify-between">
+        <div>
+          <!-- Event Header -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-700/70">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-lg bg-amber-400/15 text-amber-300 font-pixel text-xs border border-amber-400/30" id="eventBadge">
+                MONTH 01 // 突發事件
+              </span>
+              <h2 class="text-base sm:text-lg font-bold text-white" id="eventTitle">第 1 個月：空蕩蕩的專案資料夾與熱血</h2>
+            </div>
+          </div>
+
+          <!-- Main Narrative Body -->
+          <div id="narrativeText" class="text-sm sm:text-[15px] text-slate-200 leading-7 space-y-2.5 min-h-[125px]">
+            <p>歡迎來到獨立遊戲開發的修羅場！你泡了一杯手沖咖啡，看著螢幕上剛建立好的 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 text-xs">Project_Dream_Final_v1</code> 資料夾，內心澎湃不已。</p>
+            <p>銀行戶頭裡有你存了好久的 <strong>NT$ 150,000</strong> 創業基金。第一個月最關鍵的問題來了：你要先從哪裡下手？</p>
+          </div>
+        </div>
+
+        <!-- Loading Indicator Overlay -->
+        <div id="loadingIndicator" class="hidden my-3 p-3 rounded-xl bg-amber-400/10 border border-amber-400/30 flex items-center gap-3 text-amber-200 text-xs">
+          <svg class="animate-spin h-4 w-4 text-amber-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="font-pixel">AI 遊戲主持人正在推演你的決策後果與下個月的命運...</span>
+        </div>
+
+        <!-- Action Choices Grid -->
+        <div id="actionSection" class="mt-4 pt-3 border-t border-slate-700/70">
+          <div class="text-xs text-slate-400 mb-2 flex items-center justify-between">
+            <span>🎯 選擇本月的開發策略：</span>
+            <span class="text-[11px] text-slate-500">點擊卡片或下方自由輸入</span>
+          </div>
+
+          <div id="choicesContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+            <!-- Populated by JS -->
+          </div>
+
+          <!-- Custom Free-Form Player Action -->
+          <form id="customActionForm" onsubmit="handleCustomSubmit(event)" class="flex gap-2">
+            <input 
+              type="text" 
+              id="customActionInput" 
+              placeholder="✨ 或輸入你的創意行動（例如：去參加週末 Game Jam 找靈感、外包美術...）"
+              class="flex-1 bg-[#14151f] border-2 border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-white placeholder-slate-500 outline-none transition"
+            />
+            <button 
+              type="submit" 
+              id="customSubmitBtn"
+              class="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs sm:text-sm transition shadow-md cursor-pointer whitespace-nowrap"
+            >
+              執行行動 ▶
+            </button>
+          </form>
+        </div>
+
+        <!-- Ending Summary Panel (Hidden until game ends) -->
+        <div id="endingSection" class="hidden mt-4 pt-4 border-t border-slate-700">
+          <div class="p-4 rounded-xl bg-gradient-to-br from-[#25273c] to-[#1a1b29] border-2 border-amber-400/50">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-pixel text-xs px-2.5 py-0.5 rounded bg-amber-400 text-slate-950 font-bold" id="endingBadge">ENDING</span>
+              <span class="font-pixel text-xs text-slate-400" id="endingScore">綜合評級：S</span>
+            </div>
+            <h3 class="text-lg sm:text-xl font-black text-amber-300 mb-1.5" id="endingTitle">獨立遊戲奇蹟！</h3>
+            <p class="text-xs sm:text-sm text-slate-200 leading-relaxed mb-4" id="endingDesc"></p>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="copyResultSummary()" class="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition cursor-pointer">
+                📋 複製結算戰報（作業繳交用）
+              </button>
+              <button onclick="resetGame()" class="px-3.5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition cursor-pointer">
+                ↻ 再挑戰一次 12 個月
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 right-4 z-50 hidden px-4 py-2.5 rounded-xl bg-slate-800 border border-amber-400/60 text-amber-200 text-xs shadow-xl"></div>
+
+  <!-- System Prompt Modal (For Homework Submission) -->
+  <div id="promptModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="studio-card max-w-2xl w-full p-5 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-700">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">📜</span>
+          <h3 class="font-bold text-base text-amber-300">作業繳交用：AI 系統提示詞 (System Prompt)</h3>
+        </div>
+        <button onclick="togglePromptModal(false)" class="text-slate-400 hover:text-white text-lg px-2 cursor-pointer">✕</button>
+      </div>
+      <p class="text-xs text-slate-400 mt-2.5 mb-2">你可以直接複製下方提示詞作為「繳交內容 1：列出提示詞」：</p>
+      <pre id="promptTextBox" class="flex-1 overflow-y-auto bg-[#12131c] border border-slate-700 rounded-xl p-3.5 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed font-mono">你是一個文字向的「獨立遊戲開發模擬器」遊戲引擎與主持人。請帶領玩家進行一場為期 12 個月（每個月為一個回合）的獨立遊戲開發冒險。
+
+【遊戲初始狀態】
+- 當前月份：第 1 個月（總計 12 個月）
+- 資金（存款）：NT$ 150,000
+- 精力值：100 / 100
+- 專題完成度：0%
+- Bug 債：0
+- 願望清單（Wishlist）：0
+
+【每回合遊戲循環規則】
+1. 狀態播報：顯示當前月份、資金、精力值、專題進度和當前面臨的季節/環境背景。
+2. 遭遇事件：隨機或根據前幾回合的選擇，產生一個當月遭遇的「開發危機」或「機遇」（例如：程式架構大崩潰、靈感爆發、或是房租到期）。
+3. 玩家決策：提供 3 到 4 個具體的選項（包含積極推進、保守穩健、風險投機等不同策略），並允許玩家自訂輸入。
+4. 結算與反饋：根據玩家選擇，動態增減各項數值，並給予生動的文字描述，隨後進入下一個月份。
+5. 遊戲勝利/失敗條件：
+   - 勝利：在第 12 個月結束時，專題完成度達 100%，且資金大於 0。
+   - 失敗：資金歸零，或是精力值耗盡導致精神崩潰（Burnout）。</pre>
+      <div class="mt-3 pt-3 border-t border-slate-700 flex justify-end gap-2">
+        <button onclick="copyPromptText()" class="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs cursor-pointer">
+          📋 一鍵複製提示詞
+        </button>
+        <button onclick="togglePromptModal(false)" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs cursor-pointer">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. Game State & Configuration
+    // ==========================================
+    const INITIAL_STATE = {
+      month: 1,
+      cash: 150000,
+      energy: 100,
+      completion: 0,
+      bugs: 0,
+      wishlist: 0,
+      isGameOver: false,
+      history: []
+    };
+
+    let gameState = JSON.parse(JSON.stringify(INITIAL_STATE));
+    let isProcessing = false;
+
+    const INITIAL_CHOICES = [
+      {
+        id: "A",
+        tag: "穩健打底",
+        tagColor: "text-emerald-300 bg-emerald-500/15 border-emerald-500/30",
+        title: "先寫好核心戰鬥原型 (Prototype)",
+        hint: "完成度++ / 精力- / 幾乎無 Bug"
+      },
+      {
+        id: "B",
+        tag: "爆肝衝刺",
+        tagColor: "text-rose-300 bg-rose-500/15 border-rose-500/30",
+        title: "買齊外包美術素材，直接硬幹主線",
+        hint: "完成度+++ / 資金- / 精力-- / Bug+"
+      },
+      {
+        id: "C",
+        tag: "社群經營",
+        tagColor: "text-amber-300 bg-amber-500/15 border-amber-500/30",
+        title: "剪輯概念預告片並開設 Steam 商店頁",
+        hint: "願望清單++ / 完成度+ / 精力-"
+      },
+      {
+        id: "D",
+        tag: "低成本策略",
+        tagColor: "text-sky-300 bg-sky-500/15 border-sky-500/30",
+        title: "参加獨立遊戲開發者聚會找同好交流",
+        hint: "精力+ / 願望清單+ / 資金微減"
+      }
+    ];
+
+    // ==========================================
+    // 2. Gemini API Integration (with Exponential Backoff)
+    // ==========================================
+    const apiKey = ""; // Runtime environment provides key automatically
+    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+    const SYSTEM_INSTRUCTION = `你是一個文字向的「獨立遊戲開發模擬器」遊戲引擎與主持人，語氣熱血、幽默、接地氣，充滿獨立遊戲開發者的自嘲與熱情。
+請根據玩家當前的遊戲數值與選擇，結算該回合結果，並推進到下一個月（若已達第12個月結算或觸發失敗條件則結束遊戲）。
+
+你必須嚴格回傳 JSON 格式，包含以下欄位：
+- feedbackSummary: (string) 針對玩家剛才選擇的生動結算反饋（2~3句話，包含數值變化的幽默解釋）。
+- cashDelta: (integer) 本月資金增減（需計入每月基本房租生活費約 -10000 到 -15000，再加上事件影響）。
+- energyDelta: (integer) 本月精力值增減（範圍通常在 -30 到 +25 之間）。
+- completionDelta: (integer) 本月專題完成度百分比增減（範圍通常在 0 到 +22 之間）。
+- bugsDelta: (integer) 本月 Bug 技術債增減（範圍通常在 -15 到 +20 之間）。
+- wishlistDelta: (integer) 本月 Steam 願望清單增減（範圍通常在 0 到 +800 之間）。
+- nextEventTitle: (string) 下一個月的事件標題（例如：「第 2 個月：Unity 引擎大改版災難」）。
+- nextNarrative: (string) 下一個月的詳細情境故事與開發危機/機遇描述（分為兩段，生動有趣，可包含 HTML <strong> 標籤強調重點）。
+- sceneMood: (string) 從以下選一個最適合下回合氛圍的標籤："coding" | "crunch" | "bug_crisis" | "marketing" | "chill"
+- nextChoices: (array of 4 objects) 提供下回合 4 個具體策略選項，每個物件包含：
+  - id: "A" | "B" | "C" | "D"
+  - tag: 簡短策略標籤（如「爆肝硬幹」「架構重構」「社群行銷」「休養生息」）
+  - title: 具體行動選項描述（18字以內）
+  - hint: 預期風險與收益提示（如「完成度++ / 精力-- / Bug+」）`;
+
+    async function fetchGeminiTurn(playerActionText) {
+      const userPrompt = `
+【當前遊戲狀態】
+- 當前月份：第 ${gameState.month} 個月（結算後將進入第 ${gameState.month + 1} 個月，總計 12 個月）
+- 資金：NT$ ${gameState.cash}
+- 精力值：${gameState.energy} / 100
+- 遊戲完成度：${gameState.completion}%
+- Bug 技術債：${gameState.bugs}
+- 願望清單：${gameState.wishlist}
+
+【玩家本月執行的決策】
+「${playerActionText}」
+
+請結算本月結果（記得扣除基本生活費與反映決策代價），並生成下個月的新事件與 4 個選項！`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              feedbackSummary: { type: "STRING" },
+              cashDelta: { type: "INTEGER" },
+              energyDelta: { type: "INTEGER" },
+              completionDelta: { type: "INTEGER" },
+              bugsDelta: { type: "INTEGER" },
+              wishlistDelta: { type: "INTEGER" },
+              nextEventTitle: { type: "STRING" },
+              nextNarrative: { type: "STRING" },
+              sceneMood: { type: "STRING" },
+              nextChoices: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    id: { type: "STRING" },
+                    tag: { type: "STRING" },
+                    title: { type: "STRING" },
+                    hint: { type: "STRING" }
+                  },
+                  required: ["id", "tag", "title", "hint"]
+                }
+              }
+            },
+            required: [
+              "feedbackSummary", "cashDelta", "energyDelta",
+              "completionDelta", "bugsDelta", "wishlistDelta",
+              "nextEventTitle", "nextNarrative", "sceneMood", "nextChoices"
+            ]
+          }
+        }
+      };
+
+      const delays = [1000, 2000, 4000];
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
+        try {
+          const response = await fetch(GEMINI_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) throw new Error("Empty AI response");
+          return JSON.parse(rawText);
+        } catch (err) {
+          if (attempt === delays.length) throw err;
+          await new Promise(res => setTimeout(res, delays[attempt]));
+        }
+      }
+    }
+
+    // ==========================================
+    // 3. Fallback Offline Engine (Resilience)
+    // ==========================================
+    function generateFallbackTurn(actionText) {
+      const isCrunch = actionText.includes("爆肝") || actionText.includes("硬幹") || actionText.includes("熬夜");
+      const isRest = actionText.includes("休息") || actionText.includes("聚會") || actionText.includes("睡");
+      const isMarketing = actionText.includes("Steam") || actionText.includes("預告") || actionText.includes("社群");
+
+      const cashDelta = -12000 + (isMarketing ? -3000 : 0);
+      const energyDelta = isRest ? +18 : (isCrunch ? -22 : -10);
+      const completionDelta = isRest ? +4 : (isCrunch ? +16 : +11);
+      const bugsDelta = isCrunch ? +12 : (isRest ? -5 : +3);
+      const wishlistDelta = isMarketing ? +320 : +65;
+
+      const nextM = gameState.month + 1;
+      const sampleEvents = [
+        {
+          title: `第 ${nextM} 個月：深夜靈感爆發與泡麵的抉擇`,
+          desc: `<p>凌晨兩點，你的角色移動手感突然調校得絲滑無比！但與此同時，你的物理碰撞箱在特定角度會把主角彈飛到外太空。</p><p>房東傳訊息提醒下週要繳房租，而隔壁獨立團隊剛發布了超華麗的實機演示，讓你倍感壓力。</p>`,
+          mood: "coding"
+        },
+        {
+          title: `第 ${nextM} 個月：Steam 新品節報名倒數！`,
+          desc: `<p>距離大型線上試玩活動只剩最後衝刺窗口！如果能趕出一個 15 分鐘的 Demo，願望清單絕對會暴漲，但目前的 Bug 數量讓你有點心虛。</p><p>你要冒險端出半成品搶曝光，還是先關起門來修掉那該死的記憶體洩漏？</p>`,
+          mood: "marketing"
+        },
+        {
+          title: `第 ${nextM} 個月：義大利麵式程式碼的反撲`,
+          desc: `<p>你試圖在戰鬥系統裡加入一個小小的「二段跳」功能，結果整個存檔系統與 UI 介面全部連鎖崩潰，螢幕上噴出 47 個紅色 Error。</p><p>咖啡機剛好在此時發出哀鳴，你需要冷靜決定接下來的戰術。</p>`,
+          mood: "bug_crisis"
+        }
+      ];
+      const picked = sampleEvents[nextM % sampleEvents.length];
+
+      return {
+        feedbackSummary: `你執行了「${actionText}」。扣除本月基本生活開銷後，專案有了新進展，但黑眼圈似乎又深了一圈！`,
+        cashDelta,
+        energyDelta,
+        completionDelta,
+        bugsDelta,
+        wishlistDelta,
+        nextEventTitle: picked.title,
+        nextNarrative: picked.desc,
+        sceneMood: picked.mood,
+        nextChoices: [
+          { id: "A", tag: "專注推進", title: "連續一週閉關開發核心關卡", hint: "完成度++ / 精力-- / Bug+" },
+          { id: "B", tag: "品質優先", title: "徹底重構程式碼並清理技術債", hint: "Bug-- / 完成度+ / 精力-" },
+          { id: "C", tag: "搶佔流量", title: "在 Reddit 與巴哈發布開發日誌 GIF", hint: "願望清單++ / 精力-" },
+          { id: "D", tag: "接案補血", title: "週末接個小型網頁外包賺點外快", hint: "資金++ / 精力-- / 完成度不變" }
+        ]
+      };
+    }
+
+    // ==========================================
+    // 4. Turn Processing & UI Updates
+    // ==========================================
+    async function handleChoice(choiceText) {
+      if (isProcessing || gameState.isGameOver) return;
+      isProcessing = true;
+      setLoading(true);
+
+      let result;
+      try {
+        result = await fetchGeminiTurn(choiceText);
+        updateAiBadge(true);
+      } catch (e) {
+        result = generateFallbackTurn(choiceText);
+        updateAiBadge(false);
+      }
+
+      // Apply deltas
+      gameState.cash += result.cashDelta;
+      gameState.energy = Math.max(0, Math.min(100, gameState.energy + result.energyDelta));
+      gameState.completion = Math.max(0, Math.min(100, gameState.completion + result.completionDelta));
+      gameState.bugs = Math.max(0, gameState.bugs + result.bugsDelta);
+      gameState.wishlist = Math.max(0, gameState.wishlist + result.wishlistDelta);
+      gameState.history.push({ month: gameState.month, action: choiceText });
+
+      // Show floating stat deltas
+      showDelta("deltaCash", result.cashDelta, true);
+      showDelta("deltaEnergy", result.energyDelta);
+      showDelta("deltaCompletion", result.completionDelta, false, "%");
+      showDelta("deltaBugs", result.bugsDelta, false, "", true);
+      showDelta("deltaWishlist", result.wishlistDelta);
+
+      // Update feedback banner
+      document.getElementById("feedbackBox").innerHTML = `<span class="text-emerald-300 font-bold">📌 第 ${gameState.month} 月結算：</span>${result.feedbackSummary}`;
+
+      // Check Win / Loss conditions
+      if (gameState.cash <= 0) {
+        gameState.cash = 0;
+        gameState.isGameOver = true;
+        renderStats(result.sceneMood);
+        triggerEnding("BANKRUPT");
+      } else if (gameState.energy <= 0) {
+        gameState.isGameOver = true;
+        renderStats(result.sceneMood);
+        triggerEnding("BURNOUT");
+      } else if (gameState.month >= 12) {
+        gameState.isGameOver = true;
+        renderStats(result.sceneMood);
+        if (gameState.completion >= 100 && gameState.bugs <= 25 && gameState.wishlist >= 2000) {
+          triggerEnding("MASTERPIECE");
+        } else if (gameState.completion >= 100) {
+          triggerEnding("RELEASED");
+        } else {
+          triggerEnding("UNFINISHED");
+        }
+      } else {
+        // Advance to next month
+        gameState.month += 1;
+        renderStats(result.sceneMood);
+        document.getElementById("eventBadge").textContent = `MONTH ${String(gameState.month).padStart(2, '0')} // 開發事件`;
+        document.getElementById("eventTitle").textContent = result.nextEventTitle;
+        document.getElementById("narrativeText").innerHTML = result.nextNarrative;
+        renderChoices(result.nextChoices);
+      }
+
+      setLoading(false);
+      isProcessing = false;
+    }
+
+    function handleCustomSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("customActionInput");
+      const val = input.value.trim();
+      if (!val) return;
+      input.value = "";
+      handleChoice(val);
+    }
+
+    function renderStats(sceneMood = "coding") {
+      // Month & Season
+      document.getElementById("statMonth").textContent = gameState.month;
+      document.getElementById("barMonth").style.width = `${(gameState.month / 12) * 100}%`;
+      const seasons = ["春・啟動期", "春・原型期", "春・磨合期", "夏・衝刺期", "夏・酷暑期", "夏・半程檢視", "秋・擴充期", "秋・新品節", "秋・打磨期", "冬・除錯期", "冬・封測期", "冬・最終發售"];
+      document.getElementById("seasonLabel").textContent = seasons[gameState.month - 1] || "開發期";
+
+      // Cash
+      const cashEl = document.getElementById("statCash");
+      cashEl.textContent = `NT$ ${gameState.cash.toLocaleString()}`;
+      cashEl.className = `font-pixel text-lg sm:text-xl truncate ${gameState.cash < 30000 ? 'text-rose-400' : 'text-emerald-300'}`;
+
+      // Energy
+      document.getElementById("statEnergy").textContent = gameState.energy;
+      const barEnergy = document.getElementById("barEnergy");
+      barEnergy.style.width = `${gameState.energy}%`;
+      barEnergy.className = `h-full transition-all duration-500 ${gameState.energy < 30 ? 'bg-rose-500' : 'bg-sky-400'}`;
+
+      // Completion
+      document.getElementById("statCompletion").textContent = `${gameState.completion}%`;
+      document.getElementById("barCompletion").style.width = `${gameState.completion}%`;
+
+      // Bugs
+      document.getElementById("statBugs").textContent = gameState.bugs;
+      document.getElementById("barBugs").style.width = `${Math.min(100, gameState.bugs * 2)}%`;
+      const bugStatus = document.getElementById("bugStatusText");
+      if (gameState.bugs === 0) bugStatus.textContent = "程式碼潔淨";
+      else if (gameState.bugs < 15) bugStatus.textContent = "可控範圍";
+      else if (gameState.bugs < 30) bugStatus.textContent = "警告：警告堆疊";
+      else bugStatus.textContent = "災難：隨時閃退";
+
+      // Wishlist
+      document.getElementById("statWishlist").textContent = gameState.wishlist.toLocaleString();
+
+      // Update SVG Studio Visuals
+      updateStudioIllustration(sceneMood);
+    }
+
+    function updateStudioIllustration(mood) {
+      const bugLayer = document.getElementById("bugLayer");
+      const sweatLayer = document.getElementById("sweatLayer");
+      const windowSky = document.getElementById("windowSky");
+      const celestial = document.getElementById("celestialBody");
+      const sceneTag = document.getElementById("sceneTag");
+      const devMood = document.getElementById("devMoodLabel");
+
+      // Show bugs if bug debt > 8
+      bugLayer.setAttribute("opacity", gameState.bugs > 8 ? "1" : "0");
+      // Show sweat if energy < 40
+      sweatLayer.setAttribute("opacity", gameState.energy < 40 ? "1" : "0");
+
+      if (gameState.energy < 30) {
+        devMood.textContent = "狀態：靈魂快出竅 😵";
+        windowSky.setAttribute("fill", "#171c33");
+        celestial.setAttribute("fill", "#fef08a");
+        sceneTag.textContent = "SCENE // 凌晨四點的咖啡因戰場";
+      } else if (gameState.bugs >= 20) {
+        devMood.textContent = "狀態：滿螢幕紅字恐慌 🐛";
+        windowSky.setAttribute("fill", "#3b1d2a");
+        sceneTag.textContent = "SCENE // 緊急除錯修羅場";
+      } else if (mood === "marketing") {
+        devMood.textContent = "狀態：社群熱度攀升 📈";
+        windowSky.setAttribute("fill", "#2c5282");
+        sceneTag.textContent = "SCENE // Steam 商店頁衝刺中";
+      } else {
+        devMood.textContent = "狀態：心流穩定輸出 ⚡";
+        windowSky.setAttribute("fill", "#3b5998");
+        sceneTag.textContent = `SCENE // 第 ${gameState.month} 個月的開發日常`;
+      }
+    }
+
+    function renderChoices(choices) {
+      const container = document.getElementById("choicesContainer");
+      const tagStyles = {
+        A: "text-emerald-300 bg-emerald-500/15 border-emerald-500/30",
+        B: "text-rose-300 bg-rose-500/15 border-rose-500/30",
+        C: "text-amber-300 bg-amber-500/15 border-amber-500/30",
+        D: "text-sky-300 bg-sky-500/15 border-sky-500/30"
+      };
+
+      container.innerHTML = choices.map((c, idx) => {
+        const style = c.tagColor || tagStyles[c.id] || tagStyles.A;
+        return `
+          <button onclick="handleChoice('${c.title.replace(/'/g, "\\'")}')" class="choice-btn text-left p-3 rounded-xl flex flex-col justify-between gap-1.5 cursor-pointer">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-pixel text-[11px] px-2 py-0.5 rounded border ${style}">${c.tag}</span>
+              <span class="font-pixel text-xs text-slate-500">[${c.id || idx + 1}]</span>
+            </div>
+            <div class="text-xs sm:text-sm font-bold text-white leading-snug">${c.title}</div>
+            <div class="text-[11px] text-slate-400 font-pixel">${c.hint}</div>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function showDelta(elId, val, isCurrency = false, suffix = "", invertColor = false) {
+      const el = document.getElementById(elId);
+      if (!el || val === 0) {
+        if (el) el.textContent = "";
+        return;
+      }
+      const sign = val > 0 ? "+" : "";
+      const formatted = isCurrency ? `${sign}${val.toLocaleString()}` : `${sign}${val}${suffix}`;
+      const isPositive = invertColor ? val < 0 : val > 0;
+      el.textContent = formatted;
+      el.className = `font-pixel text-xs font-bold delta-badge ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`;
+      // Trigger reflow to restart animation
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = null;
+    }
+
+    function triggerEnding(type) {
+      document.getElementById("actionSection").classList.add("hidden");
+      const endingSec = document.getElementById("endingSection");
+      endingSec.classList.remove("hidden");
+
+      const badge = document.getElementById("endingBadge");
+      const score = document.getElementById("endingScore");
+      const title = document.getElementById("endingTitle");
+      const desc = document.getElementById("endingDesc");
+
+      if (type === "BANKRUPT") {
+        badge.textContent = "BAD END // 資金斷鏈";
+        score.textContent = "綜合評級：D";
+        title.textContent = "結局：夢想很豐滿，但房東不接受遊戲點數付房租";
+        desc.textContent = `在第 ${gameState.month} 個月，你的工作室帳戶正式歸零。雖然遊戲完成了 ${gameState.completion}%，你只能含淚把電腦打包，重新打開人力銀行投遞履歷...`;
+      } else if (type === "BURNOUT") {
+        badge.textContent = "BAD END // 過勞倒下";
+        score.textContent = "綜合評級：D";
+        title.textContent = "結局：肝臟發出了無聲的抗議";
+        desc.textContent = `在第 ${gameState.month} 個月，連續熬夜與無止盡的 Bug 讓你徹底精神崩潰（Burnout）。醫生嚴正警告你必須遠離螢幕三個月——記住，活著才能把遊戲做完！`;
+      } else if (type === "MASTERPIECE") {
+        badge.textContent = "TRUE END // 獨立遊戲神作";
+        score.textContent = "綜合評級：SSS";
+        title.textContent = "結局：Steam 壓倒性好評！獨立遊戲界的新星誕生";
+        desc.textContent = `12 個月的血汗沒有白費！遊戲準時 100% 完工上架，憑藉極低的 Bug 率與高達 ${gameState.wishlist.toLocaleString()} 的願望清單，首週便登上全球熱銷榜，你成功活下來了！`;
+      } else if (type === "RELEASED") {
+        badge.textContent = "NORMAL END // 順利上架";
+        score.textContent = "綜合評級：A";
+        title.textContent = "結局：褒貶不一但無比驕傲的處女作";
+        desc.textContent = `你在第 12 個月壓線完成了遊戲！雖然殘留了 ${gameState.bugs} 個奇妙的物理 Bug 被實況主做成搞笑精華，但玩家們依然感受到了你的熱情，工作室得以繼續營運下去！`;
+      } else {
+        badge.textContent = "BITTER END // 延期發售";
+        score.textContent = "綜合評級：C";
+        title.textContent = "結局：無限期延期的「搶先體驗版」";
+        desc.textContent = `12 個月期限已到，但遊戲完成度只有 ${gameState.completion}%。你硬著頭皮以 Early Access 形式上架，在評論區的砲火中繼續修補你的夢想...`;
+      }
+    }
+
+    function setLoading(loading) {
+      const loader = document.getElementById("loadingIndicator");
+      const btns = document.querySelectorAll("#choicesContainer button, #customSubmitBtn");
+      if (loading) {
+        loader.classList.remove("hidden");
+        btns.forEach(b => b.disabled = true);
+      } else {
+        loader.classList.add("hidden");
+        btns.forEach(b => b.disabled = false);
+      }
+    }
+
+    function updateAiBadge(online) {
+      const badge = document.getElementById("aiModeBadge");
+      if (online) {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> AI 遊戲主持人連線中`;
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
+      } else {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> 離線劇本引擎備援模式`;
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30";
+      }
+    }
+
+    function resetGame() {
+      gameState = JSON.parse(JSON.stringify(INITIAL_STATE));
+      document.getElementById("actionSection").classList.remove("hidden");
+      document.getElementById("endingSection").classList.add("hidden");
+      document.getElementById("eventBadge").textContent = "MONTH 01 // 突發事件";
+      document.getElementById("eventTitle").textContent = "第 1 個月：空蕩蕩的專案資料夾與熱血";
+      document.getElementById("narrativeText").innerHTML = `
+        <p>歡迎來到獨立遊戲開發的修羅場！你泡了一杯手沖咖啡，看著螢幕上剛建立好的 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 text-xs">Project_Dream_Final_v1</code> 資料夾，內心澎湃不已。</p>
+        <p>銀行戶頭裡有你存了好久的 <strong>NT$ 150,000</strong> 創業基金。第一個月最關鍵的問題來了：你要先從哪裡下手？</p>
+      `;
+      document.getElementById("feedbackBox").innerHTML = `<span class="text-amber-300 font-bold">💡 開發日誌：</span>你剛遞出辭呈，把客廳角落改造成工作室。目標是在 12 個月內把腦海中的神作做出來並上架 Steam！`;
+      renderStats("coding");
+      renderChoices(INITIAL_CHOICES);
+    }
+
+    // ==========================================
+    // 5. Modal & Clipboard Helpers
+    // ==========================================
+    function togglePromptModal(show) {
+      const modal = document.getElementById("promptModal");
+      if (show) modal.classList.remove("hidden");
+      else modal.classList.add("hidden");
+    }
+
+    function copyTextFallback(text, successMsg) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
+        showToast(successMsg);
+      } catch (err) {
+        showToast("複製失敗，請手動選取文字複製");
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function copyPromptText() {
+      const text = document.getElementById("promptTextBox").textContent;
+      copyTextFallback(text, "✅ 已複製系統提示詞！可直接貼到作業報告中");
+    }
+
+    function copyResultSummary() {
+      const title = document.getElementById("endingTitle").textContent;
+      const desc = document.getElementById("endingDesc").textContent;
+      const summary = `【獨立遊戲工作室的 12 個月生存戰｜模擬結算戰報】\n${title}\n- 存活月份：第 ${gameState.month} 個月\n- 剩餘資金：NT$ ${gameState.cash.toLocaleString()}\n- 最終完成度：${gameState.completion}%\n- 殘留 Bug 債：${gameState.bugs}\n- Steam 願望清單：${gameState.wishlist.toLocaleString()}\n\n${desc}`;
+      copyTextFallback(summary, "✅ 已複製結算戰報！可貼上作為模擬結果證明");
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 2800);
+    }
+
+    // Initialize on load
+    window.onload = function() {
+      renderStats("coding");
+      renderChoices(INITIAL_CHOICES);
+    };
+  </script>
+</body>
+</html>
